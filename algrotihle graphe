@@ -1,0 +1,199 @@
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.util.*;
+
+public class Graphe {
+
+    public static int[][] matrice;//matrice d'adjacence
+    public static int NOMBRE_SOMMETS = 0;//Nombre de sommets
+    public static Map<String, List<String>> grapheVoisins = new HashMap<>(); //liste d'adjacence
+
+    public static void chargerFichier(String nomFichier) {//charger le fichier
+        File file = new File(nomFichier);
+        if (!file.exists()) {
+            System.out.println("Erreur : Le fichier '" + nomFichier + "' est introuvable.");
+            return;
+        }
+
+        try {
+            Scanner sc = new Scanner(file);
+            if (sc.hasNextLine()) {
+                String premiereLigne = sc.nextLine().trim();
+                sc.close();
+
+//si il y a des ";" c'est que c'est une liste
+                if (premiereLigne.contains(";")) {
+
+                    GrapheRouen(nomFichier);
+                    matrice = null;
+                }
+                else {
+//sinon c'est une matrice
+                    chargerMatrice(nomFichier);
+                    grapheVoisins.clear();//vide la liste des voisins
+                }
+            } else {
+                System.out.println("Erreur : Fichier vide.");
+            }
+        } catch (FileNotFoundException e) {
+            System.out.println("Erreur : Le fichier est introuvable.");
+        }
+    }
+
+//charger matrice d'adjacence depuis un fichier.txt
+    public static void chargerMatrice(String nomFichier) {
+        File file = new File(nomFichier);
+        try {
+            Scanner sc = new Scanner(file);
+            List<String> lignes = new ArrayList<>();
+            //lecture de la matrice pour déterminer la taille
+            while (sc.hasNextLine()) {
+                String l = sc.nextLine().trim();
+                if (!l.isEmpty()) lignes.add(l);
+            }
+            sc.close();
+
+            NOMBRE_SOMMETS = lignes.size();
+            matrice = new int[NOMBRE_SOMMETS][NOMBRE_SOMMETS];
+//remplissage de la matrice
+            for (int i = 0; i < NOMBRE_SOMMETS; i++) {
+                Scanner scLigne = new Scanner(lignes.get(i));
+                for (int j = 0; j < NOMBRE_SOMMETS; j++) {
+                    if (scLigne.hasNextInt()) matrice[i][j] = scLigne.nextInt();
+                    else matrice[i][j] = 0;
+                }
+                scLigne.close();
+            }
+
+
+            System.out.println("Matrice " + NOMBRE_SOMMETS + "x" + NOMBRE_SOMMETS + " chargée.");
+
+        } catch (Exception e) {
+            System.out.println("Erreur lecture matrice.");
+        }
+    }
+
+
+//charger graphe de voisinage
+    public static void GrapheRouen(String nomFichier) {
+        grapheVoisins.clear();
+        try {
+            Scanner sc = new Scanner(new File(nomFichier));
+            while (sc.hasNextLine()) {
+                String ligne = sc.nextLine().trim();
+                if (ligne.isEmpty()) continue;
+                String[] parts = ligne.split(";");
+                if (parts.length >= 2) {
+                    String a = parts[0].trim();
+                    String b = parts[1].trim();
+                    grapheVoisins.putIfAbsent(a, new ArrayList<>());
+                    grapheVoisins.putIfAbsent(b, new ArrayList<>());
+                    if (!grapheVoisins.get(a).contains(b)) grapheVoisins.get(a).add(b);
+                    if (!grapheVoisins.get(b).contains(a)) grapheVoisins.get(b).add(a);
+                }
+            }
+            sc.close();
+            System.out.println("Plan de voisinage chargé (" + grapheVoisins.size() + " secteurs).");
+        } catch (FileNotFoundException e) {
+            System.out.println("Fichier introuvable");
+        }
+    }
+//Dijkstra pour calculer la distance minimale entre 2 sommets
+    public static int getDistance(int depart, int arrivee) {
+        if (matrice == null) return Integer.MAX_VALUE;
+
+        if (depart == arrivee) return 0;
+
+        int[] dist = new int[NOMBRE_SOMMETS];
+
+        boolean[] visite = new boolean[NOMBRE_SOMMETS];
+
+        Arrays.fill(dist, Integer.MAX_VALUE);
+
+        dist[depart] = 0;
+
+        for (int i = 0; i < NOMBRE_SOMMETS; i++) {
+            //trouver le sommet non visité avec la distance minimal
+            int u = -1;
+            int min = Integer.MAX_VALUE;
+
+            for (int k = 0; k < NOMBRE_SOMMETS; k++) {
+
+                if (!visite[k] && dist[k] < min) {
+                    min = dist[k]; u = k;
+                }
+            }
+            if (u == -1 || dist[u] == Integer.MAX_VALUE)
+                break;//plus de chemin possible on s'arrete
+            visite[u] = true;
+
+            for (int v = 0; v < NOMBRE_SOMMETS; v++) {
+
+                if (matrice[u][v] != 0 && !visite[v]) {
+
+                    if (dist[u] + matrice[u][v] < dist[v]) dist[v] = dist[u] + matrice[u][v];
+                }
+            }
+        }
+        return dist[arrivee];
+    }
+//retourne le chemin détaillé entre 2 sommets
+    public static List<Integer> getChemin(int depart, int arrivee) {
+        List<Integer> position = new ArrayList<>();
+
+        if (matrice == null) return position;
+        int[] dist = new int[NOMBRE_SOMMETS];
+        int[] predecessur = new int[NOMBRE_SOMMETS];//sert a reconstruire le chemin
+
+        boolean[] visite = new boolean[NOMBRE_SOMMETS];
+        Arrays.fill(dist, Integer.MAX_VALUE);
+        Arrays.fill(predecessur, -1);
+
+
+        dist[depart] = 0;
+
+        for (int i = 0; i < NOMBRE_SOMMETS; i++) {
+            int u = -1, min = Integer.MAX_VALUE;
+            for (int k = 0; k < NOMBRE_SOMMETS; k++) {
+                if (!visite[k] && dist[k] < min) {
+                    min = dist[k];
+                    u = k;
+                }
+            }
+            if (u == -1) break;
+            visite[u] = true;
+            if (u == arrivee) break;//on arrete si on a trouvé l'arrivé
+
+            for (int v = 0; v < NOMBRE_SOMMETS; v++) {
+                if (matrice[u][v] != 0 && !visite[v]) {
+                    if (dist[u] + matrice[u][v] < dist[v]) {
+                        dist[v] = dist[u] + matrice[u][v];
+                        predecessur[v] = u;//on note d'ou on vient
+                    }
+                }
+            }
+        }
+        if (dist[arrivee] == Integer.MAX_VALUE)
+            return position;//pas de chemin possible
+        int curr = arrivee;//reconstiution du chemin en remontant les prédécesseurs
+        while (curr != -1) {
+            position.add(curr);
+            curr = predecessur[curr];
+        }
+        Collections.reverse(position);//on met dans le bon sens
+        return position;
+    }
+//supprimer la route en mettant son poids a 0
+    public static void supprimerRoute(int u, int v) {
+        if (matrice == null) {
+            System.out.println("Aucune matrice active.");
+            return;
+        }
+        if (u>=0 && u<NOMBRE_SOMMETS && v>=0 && v<NOMBRE_SOMMETS) {
+            matrice[u][v] = 0;
+            matrice[v][u] = 0;
+            System.out.println("Route " + (u+1) + "-" + (v+1) + " barrée.");
+        } else
+            System.out.println("Sommets invalides.");
+    }
+}
